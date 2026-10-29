@@ -21,9 +21,13 @@ from io import BytesIO
 from pathlib import Path  
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
-import json
-from base64 import b64decode
-import cp_helper
+try:
+    import cp_helper
+except ImportError:
+    try:
+        from modules import cp_helper
+    except ImportError:
+        cp_helper = None
 
 def find_binary(name: str) -> Optional[str]:
     w = shutil.which(name)
@@ -86,6 +90,8 @@ def get_mps_and_keys(api_url, lic_url=None):
     Supports both direct MPD and Classplus content/streaming URLs.
     """
     try:
+        if not cp_helper:
+            return api_url, []
         # If it's a direct MPD URL
         if api_url.endswith('.mpd') or '/manifest' in api_url or '.mpd?' in api_url:
             pssh = cp_helper.extract_pssh(api_url)
@@ -108,6 +114,8 @@ def get_mps_and_keys(api_url, lic_url=None):
 def extract_keys_from_mpd(mpd_content, lic_url=None):
     """Extract decryption keys from MPD content using Widevine CDM."""
     try:
+        if not cp_helper:
+            return []
         pssh_pattern = r'<pssh[^>]*>([^<]+)</pssh>|<cenc:pssh[^>]*>([^<]+)</cenc:pssh>'
         pssh_matches = re.findall(pssh_pattern, mpd_content, re.IGNORECASE)
         pssh_b64 = None

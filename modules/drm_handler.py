@@ -39,9 +39,21 @@ import saini as helper
 import globals
 from utils import progress_bar
 from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS, cookies_file_path
-from vars import api_url, api_token, token_cp
-import cp_helper
-import classx
+try:
+    import cp_helper
+except ImportError:
+    try:
+        from modules import cp_helper
+    except ImportError:
+        cp_helper = None
+
+try:
+    import classx
+except ImportError:
+    try:
+        from modules import classx
+    except ImportError:
+        classx = None
 
 # .....,.....,.......,...,.......,....., .....,.....,.......,...,.......,.....,
 
@@ -241,7 +253,7 @@ async def drm_handler(bot: Client, m: Message):
 
             name1 = links[i][0].replace("(", "[").replace(")", "]").replace("_", "").replace("\t", "").replace(":", "").replace("/", "").replace("+", "").replace("#", "").replace("|", "").replace("@", "").replace("*", "").replace(".", "").replace("https", "").replace("http", "").strip()
             if not name1:
-                if classx.is_classx_url(url):
+                if classx and classx.is_classx_url(url):
                     tenant_name = classx.extract_classx_tenant(url)
                     name1 = f"{tenant_name.capitalize()} Video"
                 else:
@@ -309,28 +321,32 @@ async def drm_handler(bot: Client, m: Message):
             # ============================================================
             #  🔥 NEW: Classplus / Testbook Stream Signer & Decryption (v56 + Widevine)
             # ============================================================
-            elif cp_helper.is_classplus_url(url) or 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url or "akamai-cdn.classplusapp.com" in url or "hdnts=" in url or "hdntl=" in url:
+            elif (cp_helper and cp_helper.is_classplus_url(url)) or 'classplusapp' in url or "testbook.com" in url or "classplusapp.com/drm" in url or "media-cdn.classplusapp.com/drm" in url or "akamai-cdn.classplusapp.com" in url or "hdnts=" in url or "hdntl=" in url:
                 base_url = url
                 active_token = cptoken if (cptoken and cptoken not in ["/d", "cptoken"]) else token_cp
                 print(f"🎯 Resolving Classplus Stream: {url}")
                 try:
-                    cp_res = cp_helper.resolve_classplus(url, token=active_token)
-                    if cp_res.get("status") == "drm":
-                        url = cp_res.get("url") or base_url
-                        keys_list = cp_res.get("keys") or []
-                        keys_string = " ".join([f"--key {k}" for k in keys_list])
-                        print(f"✅ Classplus DRM MPD: {url}")
-                        print(f"🔑 Classplus Decryption Keys: {keys_list}")
-                    elif cp_res.get("status") == "signed":
-                        url = cp_res.get("url") or base_url
-                        keys_string = ""
-                        keys_list = []
-                        print(f"✅ Classplus Signed URL: {url}")
+                    if cp_helper:
+                        cp_res = cp_helper.resolve_classplus(url, token=active_token)
+                        if cp_res.get("status") == "drm":
+                            url = cp_res.get("url") or base_url
+                            keys_list = cp_res.get("keys") or []
+                            keys_string = " ".join([f"--key {k}" for k in keys_list])
+                            print(f"✅ Classplus DRM MPD: {url}")
+                            print(f"🔑 Classplus Decryption Keys: {keys_list}")
+                        elif cp_res.get("status") == "signed":
+                            url = cp_res.get("url") or base_url
+                            keys_string = ""
+                            keys_list = []
+                            print(f"✅ Classplus Signed URL: {url}")
+                        else:
+                            url = base_url
+                            keys_string = ""
+                            keys_list = []
+                            print(f"⚠️ Classplus fallback URL: {url}")
                     else:
-                        url = base_url
                         keys_string = ""
                         keys_list = []
-                        print(f"⚠️ Classplus fallback URL: {url}")
                 except Exception as e:
                     print(f"⚠️ Classplus resolver error: {e}")
                     url = base_url
@@ -341,7 +357,7 @@ async def drm_handler(bot: Client, m: Message):
             # ============================================================
             #  🔥 ClassX Stream Resolver & Edge-Cache Support
             # ============================================================
-            elif classx.is_classx_url(url):
+            elif classx and classx.is_classx_url(url):
                 print(f"🎯 Resolving ClassX Stream: {url}")
                 active_classx_token = classx_token if (classx_token and classx_token not in ["/d", "classx_token"]) else None
                 try:
@@ -376,7 +392,7 @@ async def drm_handler(bot: Client, m: Message):
             else:
                 ytf = f"b[height<={raw_text2}]/bv[height<={raw_text2}]+ba/b/bv+ba"
            
-            if classx.is_classx_url(url):
+            if classx and classx.is_classx_url(url):
                 ytdlp_args = classx.get_classx_ytdlp_args(url)
                 cmd = f'yt-dlp{ytdlp_args} --concurrent-fragments 4 --hls-use-mpegts --merge-output-format mp4 -f "{ytf}" "{url}" -o "{name}.mp4"'
             elif "jw-prod" in url:
